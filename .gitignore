@@ -1,0 +1,13 @@
+# Build artifacts
+Debug/
+Release/
+*.bin
+*.elf
+*.list
+*.map
+
+# IDE files
+.settings/
+.project
+.cproject
+.mxproject
