@@ -22,7 +22,7 @@ I2C_HandleTypeDef  hi2c1;
  * ============================================================ */
 char uart_buf[80];
 
-#define SNIFFER_LINES 5
+#define SNIFFER_LINES 3
 char             oled_lines[SNIFFER_LINES][20];
 volatile uint8_t oled_dirty = 0;
 volatile uint32_t frame_count = 0;
@@ -172,31 +172,6 @@ int main(void)
             oled_dirty = 0;
             oled_redraw();
         }
-
-
-
-        /////////////////////////////////////////////////
-
-        /* TYMCZASOWY TEST — dodaj w while(1) po obsłudze oled_dirty */
-        static uint32_t last_tx = 0;
-        if (HAL_GetTick() - last_tx > 1000)
-        {
-            last_tx = HAL_GetTick();
-
-            CAN_TxHeaderTypeDef tx_hdr = {0};
-            uint8_t tx_data[1] = {0xAA};
-            uint32_t mailbox;
-
-            tx_hdr.StdId = 0x200;   // testowe ID
-            tx_hdr.DLC   = 1;
-            tx_hdr.IDE   = CAN_ID_STD;
-            tx_hdr.RTR   = CAN_RTR_DATA;
-
-            HAL_CAN_AddTxMessage(&hcan, &tx_hdr, tx_data, &mailbox);
-        }
-        ////////////////////////////////////////////////
-
-
 
 
     }
