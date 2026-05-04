@@ -64,6 +64,21 @@ static void MX_USART2_UART_Init(void);
 static void MX_CAN_Init(void);
 void uart_print(const char *msg);
 static void MX_I2C1_Init(void);
+
+//FUNKCJA DO WYŚWIETLANIA NA OLED
+void oled_show(const char *line_top, const char *line_bot)
+{
+    ssd1306_Fill(Black);
+
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString(line_top, Font_7x10, White);
+
+    ssd1306_SetCursor(0, 14);
+    ssd1306_WriteString(line_bot, Font_7x10, White);
+
+    ssd1306_UpdateScreen();
+}
+
 /* ============================================================
  *  HANDLERY WYKONAWCZE — wypełnij co węzeł ma robić
  *  Tutaj jedyna logika specyficzna dla danego zastosowania
@@ -78,6 +93,7 @@ void on_osw1_on(void)
     led_blinks = 1;
     led_delay  = 300;
     uart_print(">>> OSW1 ON  <<<\r\n");
+    oled_show("OSW1", "ON");
 }
 
 void on_osw1_off(void)
@@ -87,6 +103,7 @@ void on_osw1_off(void)
     led_blinks = 2;
     led_delay  = 300;
     uart_print(">>> OSW1 OFF <<<\r\n");
+    oled_show("OSW1", "OFF");
 }
 
 void on_osw2_on(void)
@@ -96,6 +113,7 @@ void on_osw2_on(void)
     led_blinks = 1;
     led_delay  = 80;
     uart_print(">>> OSW2 ON  <<<\r\n");
+    oled_show("OSW2", "ON");
 }
 
 void on_osw2_off(void)
@@ -105,6 +123,7 @@ void on_osw2_off(void)
     led_blinks = 2;
     led_delay  = 80;
     uart_print(">>> OSW2 OFF <<<\r\n");
+    oled_show("OSW2", "OFF");
 }
 
 /* ============================================================
@@ -184,7 +203,30 @@ int main(void)
     ssd1306_UpdateScreen();
 
 
+//WYŚWIETLANIE CAN NA OLED
 
+    char line_1[22];
+    char line_2[22];
+
+    snprintf(line_1, sizeof(line_1), "CAN NODE #%u", MY_DEVICE_ID);
+    snprintf(line_2, sizeof(line_2), "0x%03X / 0x%03X", CAN_ID_OSW1, CAN_ID_OSW2);
+
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString(line_1, Font_7x10, White);
+
+    ssd1306_SetCursor(0, 14);
+    ssd1306_WriteString(line_2, Font_7x10, White);
+
+    ssd1306_UpdateScreen();
+//    char line_3[22];  // 128px / 7px szerokość znaku = ~18 znaków max
+//    snprintf(line_3, sizeof(line_3), "NODE#%u 0x%03X/0x%03X",
+//             MY_DEVICE_ID, CAN_ID_OSW1, CAN_ID_OSW2);
+//
+//    ssd1306_SetCursor(0, 0);
+//    ssd1306_WriteString(line_3, Font_7x10, White);
+//
+//    ssd1306_SetCursor(0, 16);
+//
 
     snprintf(uart_buf, sizeof(uart_buf),
              "=== CAN NODE #%u | OSW1=0x%03X OSW2=0x%03X ===\r\n",
