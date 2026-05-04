@@ -18,6 +18,13 @@
   */
 /* USER CODE END Header */
 
+
+/* ============================================================
+ *  SSD1306 — orientacja wyświetlacza
+ * ============================================================ */
+#define SSD1306_MIRROR_VERT    // odwróć pionowo
+#define SSD1306_MIRROR_HORIZ   // odwróć poziomo
+
 /* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __MAIN_H
 #define __MAIN_H

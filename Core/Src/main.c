@@ -3,9 +3,22 @@
  *  Aby dodać nowy węzeł: zmień TYLKO MY_DEVICE_ID poniżej
  *  Aby dodać nową komendę: dodaj case w can_dispatch() i wypełnij handler
  * ============================================================ */
+
 #include "main.h"
 #include <string.h>
 #include <stdio.h>
+#include "ssd1306.h"
+#include "ssd1306_fonts.h"
+
+
+
+#define HAL_I2C_MODULE_ENABLED
+
+/* ============================================================
+ *  Adres Displaya
+ * ============================================================ */
+
+#define SSD1306_I2C_ADDR (0x3C << 1)
 
 /* ============================================================
  *  KONFIGURACJA WĘZŁA — jedyna linia którą zmieniasz per urządzenie
@@ -35,6 +48,8 @@
  * ============================================================ */
 CAN_HandleTypeDef  hcan;
 UART_HandleTypeDef huart2;
+I2C_HandleTypeDef hi2c1;
+
 
 /* USER CODE BEGIN PV */
 char    uart_buf[64];
@@ -48,7 +63,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_CAN_Init(void);
 void uart_print(const char *msg);
-
+static void MX_I2C1_Init(void);
 /* ============================================================
  *  HANDLERY WYKONAWCZE — wypełnij co węzeł ma robić
  *  Tutaj jedyna logika specyficzna dla danego zastosowania
@@ -133,11 +148,43 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan_h)
  * ============================================================ */
 int main(void)
 {
+
+
+
     HAL_Init();
     SystemClock_Config();
     MX_GPIO_Init();
     MX_USART2_UART_Init();
     MX_CAN_Init();
+
+
+    MX_I2C1_Init();
+
+
+    HAL_Delay(100);
+
+    ssd1306_Init();
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0, 0);
+
+    char line1[] = "CAN NODE INIT";
+    ssd1306_WriteString(line1, Font_7x10, White);
+
+    ssd1306_SetCursor(0, 16);
+    char line2[] = "OLED HAL OK";
+    ssd1306_WriteString(line2, Font_7x10, White);
+
+    ssd1306_UpdateScreen();
+
+
+    ssd1306_Init();
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(0, 0);
+    ssd1306_WriteString(line1, Font_7x10, White);
+    ssd1306_UpdateScreen();
+
+
+
 
     snprintf(uart_buf, sizeof(uart_buf),
              "=== CAN NODE #%u | OSW1=0x%03X OSW2=0x%03X ===\r\n",
@@ -267,32 +314,24 @@ static void MX_GPIO_Init(void)
 }
 
 
-//static void MX_GPIO_Init(void)
-//{
-//    GPIO_InitTypeDef GPIO_InitStruct = {0};
-//    __HAL_RCC_GPIOC_CLK_ENABLE();
-//    __HAL_RCC_GPIOD_CLK_ENABLE();
-//    __HAL_RCC_GPIOA_CLK_ENABLE();
-//    __HAL_RCC_GPIOB_CLK_ENABLE();
-//
-//    // PC13 — LED diagnostyczny
-//    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-//    GPIO_InitStruct.Pin   = GPIO_PIN_13;
-//    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
-//    GPIO_InitStruct.Pull  = GPIO_NOPULL;
-//    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-//    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-//
-//    // PA1 = OSW1,  PA2 = OSW2
-//    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1 | GPIO_PIN_4, GPIO_PIN_RESET);
-//    g.Pin = GPIO_PIN_1 | GPIO_PIN_4;
-//    HAL_GPIO_Init(GPIOA, &g);
-//    GPIO_InitStruct.Pin   = GPIO_PIN_1 | GPIO_PIN_2;
-//    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
-//    GPIO_InitStruct.Pull  = GPIO_NOPULL;
-//    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-//    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-//}
+static void MX_I2C1_Init(void)
+{
+    hi2c1.Instance             = I2C1;
+    hi2c1.Init.ClockSpeed      = 100000;
+    hi2c1.Init.DutyCycle       = I2C_DUTYCYCLE_2;
+    hi2c1.Init.OwnAddress1     = 0;
+    hi2c1.Init.AddressingMode  = I2C_ADDRESSINGMODE_7BIT;
+    hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLED;
+    hi2c1.Init.OwnAddress2     = 0;
+    hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLED;
+    hi2c1.Init.NoStretchMode   = I2C_NOSTRETCH_DISABLED;
+
+    if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
 
 void Error_Handler(void)
 {
