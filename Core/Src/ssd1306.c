@@ -1,4 +1,5 @@
 #include "ssd1306.h"
+#include "ssd1306_conf.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>  // For memcpy

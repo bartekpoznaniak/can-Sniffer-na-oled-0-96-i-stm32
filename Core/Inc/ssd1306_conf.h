@@ -1,3 +1,10 @@
+
+/* ============================================================
+ *  Orientacja wyświetlacza — odkomentuj żeby obrócić o 180°
+ * ============================================================ */
+#define SSD1306_MIRROR_VERT    // ← DODAJ
+#define SSD1306_MIRROR_HORIZ   // ← DODAJ
+
 #ifndef __SSD1306_CONF_H__
 #define __SSD1306_CONF_H__
 

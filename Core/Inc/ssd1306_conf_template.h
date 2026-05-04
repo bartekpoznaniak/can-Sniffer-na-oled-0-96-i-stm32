@@ -3,6 +3,11 @@
  * This example is configured for STM32F0, I2C and including all fonts.
  */
 
+
+/* ssd1306_conf.h */
+#define SSD1306_MIRROR_VERT
+#define SSD1306_MIRROR_HORIZ
+
 #ifndef __SSD1306_CONF_H__
 #define __SSD1306_CONF_H__
 
