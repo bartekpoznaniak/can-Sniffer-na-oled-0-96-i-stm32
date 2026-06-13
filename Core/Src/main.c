@@ -1,10 +1,10 @@
 /* ============================================================
- *  CAN SNIFFER z OLED — Blue Pill STM32F103C8T6
+ *  CAN SNIFFER 1.1 z OLED — Blue Pill STM32F103C8T6
  *  Wyswietla ostatnie 3 ramki CAN na ekranie SSD1306 128x64
  *  Wszystkie ramki sa akceptowane (filtr otwarty)
  *  UART3 na PB10 (TX) / PB11 (RX) @ 115200
  *  I2C1  na PB6 (SCL) / PB7 (SDA)
- *  CAN1  na PA11 (RX) / PA12 (TX)
+ *  CAN1  na PB8 (RX) / PB9 (TX)
  * ============================================================ */
 
 #include "main.h"
