@@ -1,7 +1,10 @@
 /* ============================================================
  *  CAN SNIFFER z OLED — Blue Pill STM32F103C8T6
- *  Wyświetla ostatnie 5 ramek CAN na ekranie SSD1306 128x64
- *  Wszystkie ramki są akceptowane (filtr otwarty)
+ *  Wyswietla ostatnie 3 ramki CAN na ekranie SSD1306 128x64
+ *  Wszystkie ramki sa akceptowane (filtr otwarty)
+ *  UART3 na PB10 (TX) / PB11 (RX) @ 115200
+ *  I2C1  na PB6 (SCL) / PB7 (SDA)
+ *  CAN1  na PA11 (RX) / PA12 (TX)
  * ============================================================ */
 
 #include "main.h"
@@ -14,31 +17,119 @@
  *  Handles HAL
  * ============================================================ */
 CAN_HandleTypeDef  hcan;
-UART_HandleTypeDef huart2;
+UART_HandleTypeDef huart3;
 I2C_HandleTypeDef  hi2c1;
 
 /* ============================================================
  *  Zmienne globalne
  * ============================================================ */
-char uart_buf[80];
-
 #define SNIFFER_LINES 3
-char             oled_lines[SNIFFER_LINES][20];
-volatile uint8_t oled_dirty = 0;
-volatile uint32_t frame_count = 0;
+#define UART_BUF_SIZE 80
+
+/* Ring buffer dla logow UART — wypelniany w ISR, czytany w main */
+typedef struct {
+    char     buf[UART_BUF_SIZE];
+    uint8_t  ready;
+} UartMsg;
+
+static volatile UartMsg uart_msg = {0};
+
+static char             oled_lines[SNIFFER_LINES][20];
+static volatile uint8_t oled_dirty = 0;
+static volatile uint32_t frame_count = 0;
 
 /* ============================================================
  *  Prototypy
  * ============================================================ */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
+static void MX_USART3_UART_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
-void uart_print(const char *msg);
+static void uart_send_pending(void);
 
 /* ============================================================
- *  sniffer_push
+ *  HAL MSP — konfiguracja sprzetu dla HAL
+ *  Wywoływane automatycznie przez HAL_*_Init()
+ * ============================================================ */
+//void HAL_UART_MspInit(UART_HandleTypeDef *huart)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (huart->Instance == USART3)
+//    {
+//        __HAL_RCC_USART3_CLK_ENABLE();
+//        __HAL_RCC_GPIOB_CLK_ENABLE();
+//
+//        /* PB10 = TX — Alternate Function Push-Pull */
+//        GPIO_InitStruct.Pin   = GPIO_PIN_10;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//
+//        /* PB11 = RX — floating input */
+//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//        GPIO_InitStruct.Pull = GPIO_NOPULL;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//    }
+//}
+//
+//void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (hi2c->Instance == I2C1)
+//    {
+//        __HAL_RCC_GPIOB_CLK_ENABLE();
+//        __HAL_RCC_I2C1_CLK_ENABLE();
+//
+//        /* PB6 = SCL, PB7 = SDA — Alternate Function Open-Drain */
+//        GPIO_InitStruct.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_OD;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//    }
+//}
+
+//void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan_p)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (hcan_p->Instance == CAN1)
+//    {
+//        __HAL_RCC_CAN1_CLK_ENABLE();
+//        __HAL_RCC_GPIOA_CLK_ENABLE();
+//
+//        /* PA11 = CAN_RX — input */
+//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//        GPIO_InitStruct.Pull = GPIO_NOPULL;
+//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//        /* PA12 = CAN_TX — Alternate Function Push-Pull */
+//        GPIO_InitStruct.Pin   = GPIO_PIN_12;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//        /* IRQ dla CAN RX FIFO0 */
+//        HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+//        HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+//    }
+//}
+
+/* ============================================================
+ *  IRQ Handler — musi byc w projekcie (zwykle w stm32f1xx_it.c)
+ *  Jesli nie masz tego pliku, mozesz tu zostawic
+ * ============================================================ */
+//void USB_LP_CAN1_RX0_IRQHandler(void)
+//{
+//    HAL_CAN_IRQHandler(&hcan);
+//}
+
+/* ============================================================
+ *  sniffer_push — przesuwa linie w gorę i wstawia nową
  * ============================================================ */
 static void sniffer_push(const char *txt)
 {
@@ -52,7 +143,7 @@ static void sniffer_push(const char *txt)
 }
 
 /* ============================================================
- *  oled_redraw — wywołuj TYLKO z main loop, nigdy z IRQ
+ *  oled_redraw — wywoluj TYLKO z main loop, nigdy z IRQ
  * ============================================================ */
 static void oled_redraw(void)
 {
@@ -77,7 +168,31 @@ static void oled_redraw(void)
 }
 
 /* ============================================================
- *  CALLBACK CAN RX
+ *  uart_send_pending — wywoluj z main loop
+ *  Wysyla zakolejkowana wiadomosc POZA przerwaniem
+ * ============================================================ */
+static void uart_send_pending(void)
+{
+    if (uart_msg.ready)
+    {
+        uart_msg.ready = 0;
+
+
+        size_t len = strlen((const char*)uart_msg.buf);
+        HAL_UART_Transmit(&huart3,
+                          (uint8_t*)uart_msg.buf,
+                          len,
+                          100);
+
+//        HAL_UART_Transmit(&huart3,
+//                          (uint8_t*)uart_msg.buf,
+//                          strlen(uart_msg.buf),
+//                          100);
+    }
+}
+
+/* ============================================================
+ *  CALLBACK CAN RX — tylko ISR, zadnego UART tutaj!
  * ============================================================ */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan_h)
 {
@@ -89,6 +204,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan_h)
 
     frame_count++;
 
+    /* Skrócony tekst na OLED */
     char line[20];
     if (hdr.DLC == 1)
     {
@@ -107,14 +223,19 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan_h)
 
     sniffer_push(line);
 
-    /* Pełna ramka na UART */
-    int pos = snprintf(uart_buf, sizeof(uart_buf),
-                       "ID=0x%03lX DLC=%lu [", hdr.StdId, hdr.DLC);
-    for (uint8_t i = 0; i < hdr.DLC; i++)
-        pos += snprintf(uart_buf + pos, sizeof(uart_buf) - pos,
-                        "%02X%s", data[i], (i < hdr.DLC - 1) ? " " : "");
-    snprintf(uart_buf + pos, sizeof(uart_buf) - pos, "]\r\n");
-    uart_print(uart_buf);
+    /* Pelna ramka — tylko wpisz do bufora, wyslij z main loop */
+    if (!uart_msg.ready)
+    {
+        int pos = snprintf((char*)uart_msg.buf, UART_BUF_SIZE,
+                           "ID=0x%03lX DLC=%lu [", hdr.StdId, hdr.DLC);
+        for (uint8_t i = 0; i < hdr.DLC; i++)
+            pos += snprintf((char*)uart_msg.buf + pos,
+                            UART_BUF_SIZE - pos,
+                            "%02X%s", data[i],
+                            (i < hdr.DLC - 1) ? " " : "");
+        snprintf((char*)uart_msg.buf + pos, UART_BUF_SIZE - pos, "]\r\n");
+        uart_msg.ready = 1;
+    }
 }
 
 /* ============================================================
@@ -125,7 +246,7 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
     MX_GPIO_Init();
-    MX_USART2_UART_Init();
+    MX_USART3_UART_Init();
     MX_CAN_Init();
     MX_I2C1_Init();
 
@@ -139,9 +260,9 @@ int main(void)
     ssd1306_SetCursor(0, 14);
     ssd1306_WriteString("WAITING...", Font_7x10, White);
     ssd1306_UpdateScreen();
+    HAL_UART_Transmit(&huart3,(uint8_t*)"=== CAN SNIFFER READY ===\r\n",27, 200);
 
-    uart_print("=== CAN SNIFFER READY ===\r\n");
-
+    /* Filtr CAN — accept all */
     CAN_FilterTypeDef filter = {0};
     filter.FilterBank           = 0;
     filter.FilterMode           = CAN_FILTERMODE_IDMASK;
@@ -157,6 +278,7 @@ int main(void)
     HAL_CAN_Start(&hcan);
     HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+    /* Mrugniecie LED x3 — sygnalizacja gotowosci */
     for (int i = 0; i < 3; i++)
     {
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
@@ -173,30 +295,27 @@ int main(void)
             oled_redraw();
         }
 
-
+        uart_send_pending();
     }
 }
 
 /* ============================================================
  *  Init functions
  * ============================================================ */
-void uart_print(const char *msg)
-{
-    HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 100);
-}
-
 void SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-    RCC_OscInitStruct.OscillatorType  = RCC_OSCILLATORTYPE_HSE;
-    RCC_OscInitStruct.HSEState        = RCC_HSE_ON;
-    RCC_OscInitStruct.HSEPredivValue  = RCC_HSE_PREDIV_DIV1;
-    RCC_OscInitStruct.HSIState        = RCC_HSI_ON;
-    RCC_OscInitStruct.PLL.PLLState    = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource   = RCC_PLLSOURCE_HSE;
-    RCC_OscInitStruct.PLL.PLLMUL      = RCC_PLL_MUL9;
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState       = RCC_HSE_ON;
+    RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+    RCC_OscInitStruct.HSIState       = RCC_HSI_ON;
+    RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) Error_Handler();
+
     RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
                                      | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
     RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
@@ -204,6 +323,38 @@ void SystemClock_Config(void)
     RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) Error_Handler();
+}
+
+static void MX_GPIO_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+
+    /* LED na PC13 */
+    GPIO_InitStruct.Pin   = GPIO_PIN_13;
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull  = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+}
+
+static void MX_USART3_UART_Init(void)
+{
+    huart3.Instance          = USART3;
+    huart3.Init.BaudRate     = 115200;
+    huart3.Init.WordLength   = UART_WORDLENGTH_8B;
+    huart3.Init.StopBits     = UART_STOPBITS_1;
+    huart3.Init.Parity       = UART_PARITY_NONE;
+    huart3.Init.Mode         = UART_MODE_TX_RX;
+    huart3.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+    huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+    if (HAL_UART_Init(&huart3) != HAL_OK) Error_Handler();
 }
 
 static void MX_CAN_Init(void)
@@ -221,37 +372,6 @@ static void MX_CAN_Init(void)
     hcan.Init.ReceiveFifoLocked    = DISABLE;
     hcan.Init.TransmitFifoPriority = DISABLE;
     if (HAL_CAN_Init(&hcan) != HAL_OK) Error_Handler();
-}
-
-static void MX_USART2_UART_Init(void)
-{
-    huart2.Instance          = USART2;
-    huart2.Init.BaudRate     = 115200;
-    huart2.Init.WordLength   = UART_WORDLENGTH_8B;
-    huart2.Init.StopBits     = UART_STOPBITS_1;
-    huart2.Init.Parity       = UART_PARITY_NONE;
-    huart2.Init.Mode         = UART_MODE_TX_RX;
-    huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
-    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-    if (HAL_UART_Init(&huart2) != HAL_OK) Error_Handler();
-}
-
-static void MX_GPIO_Init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-
-    GPIO_InitStruct.Pin   = GPIO_PIN_13;
-    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull  = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
 static void MX_I2C1_Init(void)

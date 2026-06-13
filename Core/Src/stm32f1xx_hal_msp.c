@@ -86,39 +86,104 @@ void HAL_MspInit(void)
   * @param hcan: CAN handle pointer
   * @retval None
   */
-void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
+//void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
+//{
+//  GPIO_InitTypeDef GPIO_InitStruct = {0};
+//  if(hcan->Instance==CAN1)
+//  {
+//    /* USER CODE BEGIN CAN1_MspInit 0 */
+//
+//    /* USER CODE END CAN1_MspInit 0 */
+//    /* Peripheral clock enable */
+//	    __HAL_RCC_CAN1_CLK_ENABLE();
+//	    __HAL_RCC_AFIO_CLK_ENABLE();     // ← nowa linia
+//	    __HAL_AFIO_REMAP_CAN1_2();       // ← przeniesiona tutaj (przed GPIO!)
+//
+//	    __HAL_RCC_GPIOB_CLK_ENABLE();
+//
+//	    GPIO_InitStruct.Pin = GPIO_PIN_8;
+//	    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//	    GPIO_InitStruct.Pull = GPIO_NOPULL;
+//	    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//
+//	    GPIO_InitStruct.Pin = GPIO_PIN_9;
+//	    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+//	    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//	    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//
+//	    HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+//	    HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+//
+//    /* USER CODE END CAN1_MspInit 1 */
+//
+//  }
+//
+//}
+
+//
+//void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan_p)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (hcan_p->Instance == CAN1)
+//    {
+//        __HAL_RCC_CAN1_CLK_ENABLE();
+//        __HAL_RCC_GPIOA_CLK_ENABLE();
+//
+//        /* PA11 = CAN_RX — input */
+//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//        GPIO_InitStruct.Pull = GPIO_NOPULL;
+//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//        /* PA12 = CAN_TX — Alternate Function Push-Pull */
+//        GPIO_InitStruct.Pin   = GPIO_PIN_12;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//        /* IRQ dla CAN RX FIFO0 */
+//        HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+//        HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+//    }
+//}
+
+
+
+
+
+void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(hcan->Instance==CAN1)
-  {
-    /* USER CODE BEGIN CAN1_MspInit 0 */
+    if (hcan->Instance == CAN1)
+    {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    /* USER CODE END CAN1_MspInit 0 */
-    /* Peripheral clock enable */
-	    __HAL_RCC_CAN1_CLK_ENABLE();
-	    __HAL_RCC_AFIO_CLK_ENABLE();     // ← nowa linia
-	    __HAL_AFIO_REMAP_CAN1_2();       // ← przeniesiona tutaj (przed GPIO!)
+        __HAL_RCC_CAN1_CLK_ENABLE();
+        __HAL_RCC_GPIOB_CLK_ENABLE();
+        __HAL_RCC_AFIO_CLK_ENABLE();
 
-	    __HAL_RCC_GPIOB_CLK_ENABLE();
+        /* Remap CAN1 na PB8/PB9 */
+        __HAL_AFIO_REMAP_CAN1_2();   // dla wariantu PB8=RX, PB9=TX [web:140][web:148]
 
-	    GPIO_InitStruct.Pin = GPIO_PIN_8;
-	    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	    GPIO_InitStruct.Pull = GPIO_NOPULL;
-	    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        /* PB8 = CAN_RX */
+        GPIO_InitStruct.Pin  = GPIO_PIN_8;
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-	    GPIO_InitStruct.Pin = GPIO_PIN_9;
-	    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-	    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-	    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        /* PB9 = CAN_TX */
+        GPIO_InitStruct.Pin   = GPIO_PIN_9;
+        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-	    HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
-	    HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
-
-    /* USER CODE END CAN1_MspInit 1 */
-
-  }
-
+        HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+    }
 }
+
+
+
 
 /**
   * @brief CAN MSP De-Initialization
@@ -155,42 +220,81 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
   * @param huart: UART handle pointer
   * @retval None
   */
-void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+//void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+//{
+//  GPIO_InitTypeDef GPIO_InitStruct = {0};
+//  if(huart->Instance==USART2)
+//  {
+//    /* USER CODE BEGIN USART2_MspInit 0 */
+//
+//    /* USER CODE END USART2_MspInit 0 */
+//    /* Peripheral clock enable */
+//    __HAL_RCC_USART2_CLK_ENABLE();
+//
+//    __HAL_RCC_GPIOA_CLK_ENABLE();
+//    /**USART2 GPIO Configuration
+//    PA2     ------> USART2_TX
+//    PA3     ------> USART2_RX
+//    */
+//    GPIO_InitStruct.Pin = GPIO_PIN_2;
+//    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+//    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//    GPIO_InitStruct.Pin = GPIO_PIN_3;
+//    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//    GPIO_InitStruct.Pull = GPIO_NOPULL;
+//    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+//
+//    /* USER CODE BEGIN USART2_MspInit 1 */
+//
+//    /* USER CODE END USART2_MspInit 1 */
+//
+//  }
+//
+//}
+void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  if(huart->Instance==USART2)
-  {
-    /* USER CODE BEGIN USART2_MspInit 0 */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    /* USER CODE END USART2_MspInit 0 */
-    /* Peripheral clock enable */
-    __HAL_RCC_USART2_CLK_ENABLE();
+    if (huart->Instance == USART3)
+    {
+        __HAL_RCC_USART3_CLK_ENABLE();
+        __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    /**USART2 GPIO Configuration
-    PA2     ------> USART2_TX
-    PA3     ------> USART2_RX
-    */
-    GPIO_InitStruct.Pin = GPIO_PIN_2;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+        /* PB10 = TX — Alternate Function Push-Pull */
+        GPIO_InitStruct.Pin   = GPIO_PIN_10;
+        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_3;
-    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    /* USER CODE BEGIN USART2_MspInit 1 */
-
-    /* USER CODE END USART2_MspInit 1 */
-
-  }
-
+        /* PB11 = RX — floating input */
+        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    }
 }
 
+//void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (hi2c->Instance == I2C1)
+//    {
+//        __HAL_RCC_GPIOB_CLK_ENABLE();
+//        __HAL_RCC_I2C1_CLK_ENABLE();
+//
+//        GPIO_InitStruct.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_OD;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//    }
+//}
 
-void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
+
+
+void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
@@ -199,12 +303,14 @@ void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
         __HAL_RCC_GPIOB_CLK_ENABLE();
         __HAL_RCC_I2C1_CLK_ENABLE();
 
+        /* PB6 = SCL, PB7 = SDA — Alternate Function Open-Drain */
         GPIO_InitStruct.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
         GPIO_InitStruct.Mode  = GPIO_MODE_AF_OD;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
         HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
     }
 }
+
 
 /**
   * @brief UART MSP De-Initialization
