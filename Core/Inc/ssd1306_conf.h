@@ -18,10 +18,10 @@
 
 /* Fonty, których chcesz używać */
 #define SSD1306_INCLUDE_FONT_7x10
-/* opcjonalnie:
+/* opcjonalnie:*/
 #define SSD1306_INCLUDE_FONT_6x8
 #define SSD1306_INCLUDE_FONT_11x18
-*/
+/**/
 
 /* Rozmiar ekranu (dla typowego 0.96" SSD1306) */
 #define SSD1306_WIDTH 128

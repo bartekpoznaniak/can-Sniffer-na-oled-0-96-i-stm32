@@ -3,11 +3,23 @@ Debug/
 Release/
 *.bin
 *.elf
-*.list
+*.hex
 *.map
+*.list
+*.o
+*.d
+*.su
+*.cyclo
+default.size.stdout
+objects.list
+
+# Backup files
+*.bk*
+*~
 
 # IDE files
 .settings/
 .project
 .cproject
 .mxproject
+.metadata/
