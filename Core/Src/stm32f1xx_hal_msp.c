@@ -179,6 +179,11 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan)
 
         HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
         HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+
+        //HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
+        //HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
+
+
     }
 }
 
@@ -253,28 +258,52 @@ void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
 //  }
 //
 //}
+
 void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    if (huart->Instance == USART3)
+    if (huart->Instance == USART2)
     {
-        __HAL_RCC_USART3_CLK_ENABLE();
-        __HAL_RCC_GPIOB_CLK_ENABLE();
+        __HAL_RCC_USART2_CLK_ENABLE();
+        __HAL_RCC_GPIOA_CLK_ENABLE();
 
-        /* PB10 = TX — Alternate Function Push-Pull */
-        GPIO_InitStruct.Pin   = GPIO_PIN_10;
+        /* PA2 = TX — Alternate Function Push-Pull */
+        GPIO_InitStruct.Pin   = GPIO_PIN_2;
         GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
         GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-        /* PB11 = RX — floating input */
-        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+        /* PA3 = RX — floating input */
+        GPIO_InitStruct.Pin  = GPIO_PIN_3;
         GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
         GPIO_InitStruct.Pull = GPIO_NOPULL;
-        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
     }
 }
+
+//void HAL_UART_MspInit(UART_HandleTypeDef *huart)
+//{
+//    GPIO_InitTypeDef GPIO_InitStruct = {0};
+//
+//    if (huart->Instance == USART3)
+//    {
+//        __HAL_RCC_USART3_CLK_ENABLE();
+//        __HAL_RCC_GPIOB_CLK_ENABLE();
+//
+//        /* PB10 = TX — Alternate Function Push-Pull */
+//        GPIO_InitStruct.Pin   = GPIO_PIN_10;
+//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//
+//        /* PB11 = RX — floating input */
+//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
+//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+//        GPIO_InitStruct.Pull = GPIO_NOPULL;
+//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+//    }
+//}
 
 //void HAL_I2C_MspInit(I2C_HandleTypeDef* hi2c)
 //{

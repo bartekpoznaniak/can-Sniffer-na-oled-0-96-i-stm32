@@ -17,7 +17,8 @@
  *  Handles HAL
  * ============================================================ */
 CAN_HandleTypeDef  hcan;
-UART_HandleTypeDef huart3;
+//UART_HandleTypeDef huart3;
+UART_HandleTypeDef huart2;
 I2C_HandleTypeDef  hi2c1;
 
 /* ============================================================
@@ -43,90 +44,13 @@ static volatile uint32_t frame_count = 0;
  * ============================================================ */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART3_UART_Init(void);
+//static void MX_USART3_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 static void uart_send_pending(void);
 
-/* ============================================================
- *  HAL MSP — konfiguracja sprzetu dla HAL
- *  Wywoływane automatycznie przez HAL_*_Init()
- * ============================================================ */
-//void HAL_UART_MspInit(UART_HandleTypeDef *huart)
-//{
-//    GPIO_InitTypeDef GPIO_InitStruct = {0};
-//
-//    if (huart->Instance == USART3)
-//    {
-//        __HAL_RCC_USART3_CLK_ENABLE();
-//        __HAL_RCC_GPIOB_CLK_ENABLE();
-//
-//        /* PB10 = TX — Alternate Function Push-Pull */
-//        GPIO_InitStruct.Pin   = GPIO_PIN_10;
-//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
-//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-//
-//        /* PB11 = RX — floating input */
-//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
-//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-//        GPIO_InitStruct.Pull = GPIO_NOPULL;
-//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-//    }
-//}
-//
-//void HAL_I2C_MspInit(I2C_HandleTypeDef *hi2c)
-//{
-//    GPIO_InitTypeDef GPIO_InitStruct = {0};
-//
-//    if (hi2c->Instance == I2C1)
-//    {
-//        __HAL_RCC_GPIOB_CLK_ENABLE();
-//        __HAL_RCC_I2C1_CLK_ENABLE();
-//
-//        /* PB6 = SCL, PB7 = SDA — Alternate Function Open-Drain */
-//        GPIO_InitStruct.Pin   = GPIO_PIN_6 | GPIO_PIN_7;
-//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_OD;
-//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-//        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-//    }
-//}
 
-//void HAL_CAN_MspInit(CAN_HandleTypeDef *hcan_p)
-//{
-//    GPIO_InitTypeDef GPIO_InitStruct = {0};
-//
-//    if (hcan_p->Instance == CAN1)
-//    {
-//        __HAL_RCC_CAN1_CLK_ENABLE();
-//        __HAL_RCC_GPIOA_CLK_ENABLE();
-//
-//        /* PA11 = CAN_RX — input */
-//        GPIO_InitStruct.Pin  = GPIO_PIN_11;
-//        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-//        GPIO_InitStruct.Pull = GPIO_NOPULL;
-//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-//
-//        /* PA12 = CAN_TX — Alternate Function Push-Pull */
-//        GPIO_InitStruct.Pin   = GPIO_PIN_12;
-//        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
-//        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-//        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-//
-//        /* IRQ dla CAN RX FIFO0 */
-//        HAL_NVIC_SetPriority(USB_LP_CAN1_RX0_IRQn, 1, 0);
-//        HAL_NVIC_EnableIRQ(USB_LP_CAN1_RX0_IRQn);
-//    }
-//}
-
-/* ============================================================
- *  IRQ Handler — musi byc w projekcie (zwykle w stm32f1xx_it.c)
- *  Jesli nie masz tego pliku, mozesz tu zostawic
- * ============================================================ */
-//void USB_LP_CAN1_RX0_IRQHandler(void)
-//{
-//    HAL_CAN_IRQHandler(&hcan);
-//}
 
 /* ============================================================
  *  sniffer_push — przesuwa linie w gorę i wstawia nową
@@ -179,15 +103,10 @@ static void uart_send_pending(void)
 
 
         size_t len = strlen((const char*)uart_msg.buf);
-        HAL_UART_Transmit(&huart3,
+        HAL_UART_Transmit(&huart2,
                           (uint8_t*)uart_msg.buf,
                           len,
                           100);
-
-//        HAL_UART_Transmit(&huart3,
-//                          (uint8_t*)uart_msg.buf,
-//                          strlen(uart_msg.buf),
-//                          100);
     }
 }
 
@@ -246,7 +165,8 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
     MX_GPIO_Init();
-    MX_USART3_UART_Init();
+    //MX_USART3_UART_Init();
+    MX_USART2_UART_Init();
     MX_CAN_Init();
     MX_I2C1_Init();
 
@@ -260,7 +180,7 @@ int main(void)
     ssd1306_SetCursor(0, 14);
     ssd1306_WriteString("WAITING...", Font_7x10, White);
     ssd1306_UpdateScreen();
-    HAL_UART_Transmit(&huart3,(uint8_t*)"=== CAN SNIFFER READY ===\r\n",27, 200);
+    HAL_UART_Transmit(&huart2,(uint8_t*)"=== CAN SNIFFER READY ===\r\n",27, 200);
 
     /* Filtr CAN — accept all */
     CAN_FilterTypeDef filter = {0};
@@ -344,18 +264,33 @@ static void MX_GPIO_Init(void)
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
-static void MX_USART3_UART_Init(void)
+
+static void MX_USART2_UART_Init(void)
 {
-    huart3.Instance          = USART3;
-    huart3.Init.BaudRate     = 115200;
-    huart3.Init.WordLength   = UART_WORDLENGTH_8B;
-    huart3.Init.StopBits     = UART_STOPBITS_1;
-    huart3.Init.Parity       = UART_PARITY_NONE;
-    huart3.Init.Mode         = UART_MODE_TX_RX;
-    huart3.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
-    huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-    if (HAL_UART_Init(&huart3) != HAL_OK) Error_Handler();
+    huart2.Instance          = USART2;
+    huart2.Init.BaudRate     = 115200;
+    huart2.Init.WordLength   = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits     = UART_STOPBITS_1;
+    huart2.Init.Parity       = UART_PARITY_NONE;
+    huart2.Init.Mode         = UART_MODE_TX_RX;
+    huart2.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+    if (HAL_UART_Init(&huart2) != HAL_OK) Error_Handler();
 }
+
+
+//static void MX_USART3_UART_Init(void)
+//{
+//    huart3.Instance          = USART3;
+//    huart3.Init.BaudRate     = 115200;
+//    huart3.Init.WordLength   = UART_WORDLENGTH_8B;
+//    huart3.Init.StopBits     = UART_STOPBITS_1;
+//    huart3.Init.Parity       = UART_PARITY_NONE;
+//    huart3.Init.Mode         = UART_MODE_TX_RX;
+//    huart3.Init.HwFlowCtl    = UART_HWCONTROL_NONE;
+//    huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+//    if (HAL_UART_Init(&huart3) != HAL_OK) Error_Handler();
+//}
 
 static void MX_CAN_Init(void)
 {
